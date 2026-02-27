@@ -11,3 +11,6 @@ override.tf
 terraform.rc
 *.json
 .terraform.lock.hcl
+access-key.json
+*.json
+access-key.json

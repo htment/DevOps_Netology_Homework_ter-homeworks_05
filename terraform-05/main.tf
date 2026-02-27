@@ -22,7 +22,9 @@ module "vpc_dev" {
 
 
 module "marketing_vm" {
-  source = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=main"
+  source = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=1.0.0"
+  security_group_ids = [yandex_vpc_security_group.default.id]
+   public_ip = false
 
   env_name     = "marketing"
   network_id   = module.vpc_dev.network_id
@@ -36,7 +38,7 @@ module "marketing_vm" {
   instance_core_fraction = 20
   boot_disk_type         = var.boot_disk_type
   boot_disk_size         = var.boot_disk_size
-  public_ip              = true
+  #public_ip              = true
   image_family           = var.image_family
   preemptible            = true
 
@@ -55,7 +57,10 @@ module "marketing_vm" {
 }
 
 module "analytics_vm" {
-  source = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=main"
+  source = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=1.0.0"
+  security_group_ids = [yandex_vpc_security_group.default.id]
+   public_ip = false
+
 
   env_name     = "analytics"
   network_id   = module.vpc_dev.network_id
@@ -69,7 +74,7 @@ module "analytics_vm" {
   instance_core_fraction = 20
   boot_disk_type         = var.boot_disk_type
   boot_disk_size         = var.boot_disk_size
-  public_ip              = true
+  #public_ip              = true
   image_family           = var.image_family
   preemptible            = true
 
@@ -93,3 +98,4 @@ resource "local_file" "demo" {
   content  = "Demo file for Terraform state operations"
   filename = "${path.module}/demo.txt"
 }
+
