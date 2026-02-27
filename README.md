@@ -217,3 +217,52 @@ terraform apply -auto-approve
 # Получаем LOCK_ID из предыдущей ошибки и разблокируем
 terraform force-unlock 62bd7dd4-84a8-d72e-a342-6b9d3179c5d7
 ```
+![alt text](image-12.png)
+```
+terraform apply -auto-approve
+
+```
+![alt text](image-13.png)
+
+
+
+
+------
+### Задание 3  
+
+1. Сделайте в GitHub из ветки 'terraform-05' новую ветку 'terraform-hotfix'.
+2. Проверье код с помощью tflint и checkov, исправьте все предупреждения и ошибки в 'terraform-hotfix', сделайте коммит.
+3. Откройте новый pull request 'terraform-hotfix' --> 'terraform-05'. 
+4. Вставьте в комментарий PR результат анализа tflint и checkov, план изменений инфраструктуры из вывода команды terraform plan.
+5. Пришлите ссылку на PR для ревью. Вливать код в 'terraform-05' не нужно.
+
+------
+```
+git checkout terraform-05
+```
+```
+git checkout -b terraform-hotfix
+```
+# Проверяем текущую ветку
+```
+git branch
+```
+![alt text](image-14.png)
+
+## сделаем проверку
+
+```
+docker run --rm --tty --volume $(pwd):/tf --workdir /tf bridgecrew/checkov --download-external-modules true --directory /tf
+```
+
+![alt text](image-15.png)
+
+исправим ошибки
+docker run --rm --tty --volume $(pwd):/tf --workdir /tf bridgecrew/checkov --download-external-modules true --directory /tf
+
+![alt text](image-16.png)
+
+Если ошибок не то пустой вывод 
+
+
+
