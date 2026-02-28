@@ -266,3 +266,197 @@ docker run --rm --tty --volume $(pwd):/tf --workdir /tf bridgecrew/checkov --dow
 
 
 
+
+terraform-hotfix', сделаем коммит
+```
+ git checkout -b terraform-hotfix
+```
+```
+git add .
+git commit -m "add README-fix adnd screen"
+```
+Создадим PR
+
+
+![alt text](image-17.png)
+
+
+# Задание 4
+
+1. Напишите переменные с валидацией и протестируйте их, заполнив default верными и неверными значениями. Предоставьте скриншоты проверок из terraform console. 
+
+- type=string, description="ip-адрес" — проверка, что значение переменной содержит верный IP-адрес с помощью функций cidrhost() или regex(). Тесты:  "192.168.0.1" и "1920.1680.0.1";
+- type=list(string), description="список ip-адресов" — проверка, что все адреса верны. Тесты:  ["192.168.0.1", "1.1.1.1", "127.0.0.1"] и ["192.168.0.1", "1.1.1.1", "1270.0.0.1"].
+
+
+## Создадим variables.tf
+
+
+```
+# Переменная для одного IP-адреса
+variable "ip_address" {
+  type        = string
+  description = "IP-адрес"
+
+  validation {
+    condition = can(regex("^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", var.ip_address))
+    error_message = "Значение должно быть корректным IPv4-адресом."
+  }
+}
+
+# Альтернативный вариант валидации с использованием cidrhost()
+variable "ip_address_cidr" {
+  type        = string
+  description = "IP-адрес (проверка через cidrhost)"
+
+  validation {
+    # Пробуем использовать IP как хост в сети /32
+    condition = can(cidrhost("${var.ip_address_cidr}/32", 0))
+    error_message = "Значение должно быть корректным IPv4-адресом."
+  }
+}
+
+# Переменная для списка IP-адресов
+variable "ip_addresses" {
+  type        = list(string)
+  description = "Список IP-адресов"
+
+  validation {
+    condition = alltrue([
+      for ip in var.ip_addresses : can(regex("^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", ip))
+    ])
+    error_message = "Все элементы списка должны быть корректными IPv4-адресами."
+  }
+}
+
+# Альтернативный вариант для списка с использованием cidrhost()
+variable "ip_addresses_cidr" {
+  type        = list(string)
+  description = "Список IP-адресов (проверка через cidrhost)"
+
+  validation {
+    condition = alltrue([
+      for ip in var.ip_addresses_cidr : can(cidrhost("${ip}/32", 0))
+    ])
+    error_message = "Все элементы списка должны быть корректными IPv4-адресами."
+  }
+}
+```
+
+
+##  terraform.tfvars
+```
+
+# Верные значения
+ip_address      = "192.168.0.1"
+ip_address_cidr = "192.168.0.1"
+ip_addresses    = ["192.168.0.1", "1.1.1.1", "127.0.0.1"]
+ip_addresses_cidr = ["192.168.0.1", "1.1.1.1", "127.0.0.1"]
+
+# Раскомментируйте для тестирования неверных значений:
+# ip_address      = "1920.1680.0.1"
+# ip_address_cidr = "1920.1680.0.1"
+# ip_addresses    = ["192.168.0.1", "1.1.1.1", "1270.0.0.1"]
+# ip_addresses_cidr = ["192.168.0.1", "1.1.1.1", "1270.0.0.1"]
+```
+проверим в terraform console
+```
+terraform console
+```
+![alt text](image-18.png)
+
+
+Раскомментируем неверные значения 
+
+![alt text](image-19.png)
+
+получаем сообщение об ошибке
+
+![alt text](image-20.png)
+
+
+# Задание 5 
+
+1. Напишите переменные с валидацией:
+- type=string, description="любая строка" — проверка, что строка не содержит символов верхнего регистра;
+- type=object — проверка, что одно из значений равно true, а второе false, т. е. не допускается false false и true true:
+```
+variable "in_the_end_there_can_be_only_one" {
+    description="Who is better Connor or Duncan?"
+    type = object({
+        Dunkan = optional(bool)
+        Connor = optional(bool)
+    })
+
+    default = {
+        Dunkan = true
+        Connor = false
+    }
+
+    validation {
+        error_message = "There can be only one MacLeod"
+        condition = <проверка>
+    }
+}
+```
+## terraform.tfvars
+
+```
+simple_string="Привет как дела"
+#simple_string="привет как дела"
+```
+
+# variables.tf
+
+```
+variable "simple_string" {
+  default = "ПЕРЕМЕННАЯ НЕ ЗАДАНА!!!"
+  type        = string
+  description = "любая строка"
+
+  # ВАЛИДАЦИЯ: проверяем, что нет заглавных букв
+  validation {
+    # Условие: строка равна самой себе в нижнем регистре
+    # Если есть хоть одна заглавная буква -> условие ЛОЖЬ -> ошибка
+    condition = var.simple_string == lower(var.simple_string)
+    
+    # Сообщение, которое увидит пользователь при ошибке
+    error_message = "ОШИБКА: в строке есть заглавные буквы! Используйте только маленькие буквы."
+  }
+}
+```
+Проверяем
+```
+terraform console
+```
+![alt text](image-21.png)
+
+меяем 
+![alt text](image-22.png)
+
+![alt text](image-23.png)
+
+```
+# ПЕРЕМЕННАЯ 2: выбор между Коннором и Дунканом
+variable "who_is_better" {
+  description = "Кто круче: Коннор или Дункан?"
+  
+  type = object({
+    Dunkan = optional(bool)
+    Connor = optional(bool)
+  })
+
+  # Значение по умолчанию
+  default = {
+    Dunkan = true
+    Connor = false
+  }
+
+  validation {
+    # Проверяем, что значения РАЗНЫЕ (один true, другой false)
+    condition = var.who_is_better.Dunkan != var.who_is_better.Connor
+    error_message = "ОШИБКА: должен быть только один МакЛауд! (true/false или false/true)"
+  }
+}
+```
+![alt text](image-24.png)
