@@ -1,0 +1,36 @@
+services:
+  jenkins:
+    image: jenkins-terraform:latest
+    container_name: jenkins
+    build: .
+    privileged: true
+    user: root  # ← РАСКОММЕНТИРУЙ ЭТУ СТРОКУ (убери #)
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ~/.ssh:/var/jenkins_home/.ssh:ro
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    networks:
+      - jenkins_net
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:
+    name: jenkins-data
+
+#networks:
+#  jenkins_net:
+#    driver: bridge
+
+networks:
+  jenkins_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1

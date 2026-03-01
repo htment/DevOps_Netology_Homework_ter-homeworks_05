@@ -1,0 +1,52 @@
+# Dockerfile
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Установка базовых пакетов
+RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    git \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Скачивание и установка Terraform
+RUN TERRAFORM_VERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*"' | cut -d'"' -f4) \
+    && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip \
+    && unzip terraform.zip \
+    && mv terraform /usr/local/bin/ \
+    && rm terraform.zip \
+    && chmod +x /usr/local/bin/terraform
+
+# Установка Docker CLI
+RUN curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh
+
+# Переключаемся на jenkins пользователя
+USER jenkins
+
+# Настройка Jenkins для использования зеркала Yandex (важно!)
+ENV JENKINS_UC=https://updates.jenkins.io
+ENV JENKINS_UC_DOWNLOAD=https://mirror.yandex.ru/mirrors/jenkins
+
+# Установка плагинов через зеркало Yandex
+# RUN jenkins-plugin-cli --plugins \
+#     structs \
+#     credentials-binding \
+#     script-security \
+#     ssh-credentials \
+#     mailer \
+#     workflow-scm-step \
+#     workflow-step-api \
+#     credentials \
+#     git-client \
+#     scm-api \
+#     git
+
+# Проверка
+RUN terraform version

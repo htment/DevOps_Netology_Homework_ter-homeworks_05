@@ -217,3 +217,396 @@ terraform apply -auto-approve
 # Получаем LOCK_ID из предыдущей ошибки и разблокируем
 terraform force-unlock 62bd7dd4-84a8-d72e-a342-6b9d3179c5d7
 ```
+![alt text](image-12.png)
+```
+terraform apply -auto-approve
+
+```
+![alt text](image-13.png)
+
+
+
+
+------
+### Задание 3  
+
+1. Сделайте в GitHub из ветки 'terraform-05' новую ветку 'terraform-hotfix'.
+2. Проверье код с помощью tflint и checkov, исправьте все предупреждения и ошибки в 'terraform-hotfix', сделайте коммит.
+3. Откройте новый pull request 'terraform-hotfix' --> 'terraform-05'. 
+4. Вставьте в комментарий PR результат анализа tflint и checkov, план изменений инфраструктуры из вывода команды terraform plan.
+5. Пришлите ссылку на PR для ревью. Вливать код в 'terraform-05' не нужно.
+
+------
+```
+git checkout terraform-05
+```
+```
+git checkout -b terraform-hotfix
+```
+# Проверяем текущую ветку
+```
+git branch
+```
+![alt text](image-14.png)
+
+## сделаем проверку
+
+```
+docker run --rm --tty --volume $(pwd):/tf --workdir /tf bridgecrew/checkov --download-external-modules true --directory /tf
+```
+
+![alt text](image-15.png)
+
+исправим ошибки
+docker run --rm --tty --volume $(pwd):/tf --workdir /tf bridgecrew/checkov --download-external-modules true --directory /tf
+
+![alt text](image-16.png)
+
+Если ошибок не то пустой вывод 
+
+
+
+
+terraform-hotfix', сделаем коммит
+```
+ git checkout -b terraform-hotfix
+```
+```
+git add .
+git commit -m "add README-fix adnd screen"
+```
+Создадим PR
+
+
+![alt text](image-17.png)
+
+
+# Задание 4
+
+1. Напишите переменные с валидацией и протестируйте их, заполнив default верными и неверными значениями. Предоставьте скриншоты проверок из terraform console. 
+
+- type=string, description="ip-адрес" — проверка, что значение переменной содержит верный IP-адрес с помощью функций cidrhost() или regex(). Тесты:  "192.168.0.1" и "1920.1680.0.1";
+- type=list(string), description="список ip-адресов" — проверка, что все адреса верны. Тесты:  ["192.168.0.1", "1.1.1.1", "127.0.0.1"] и ["192.168.0.1", "1.1.1.1", "1270.0.0.1"].
+
+
+## Создадим variables.tf
+
+
+```
+# Переменная для одного IP-адреса
+variable "ip_address" {
+  type        = string
+  description = "IP-адрес"
+
+  validation {
+    condition = can(regex("^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", var.ip_address))
+    error_message = "Значение должно быть корректным IPv4-адресом."
+  }
+}
+
+# Альтернативный вариант валидации с использованием cidrhost()
+variable "ip_address_cidr" {
+  type        = string
+  description = "IP-адрес (проверка через cidrhost)"
+
+  validation {
+    # Пробуем использовать IP как хост в сети /32
+    condition = can(cidrhost("${var.ip_address_cidr}/32", 0))
+    error_message = "Значение должно быть корректным IPv4-адресом."
+  }
+}
+
+# Переменная для списка IP-адресов
+variable "ip_addresses" {
+  type        = list(string)
+  description = "Список IP-адресов"
+
+  validation {
+    condition = alltrue([
+      for ip in var.ip_addresses : can(regex("^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", ip))
+    ])
+    error_message = "Все элементы списка должны быть корректными IPv4-адресами."
+  }
+}
+
+# Альтернативный вариант для списка с использованием cidrhost()
+variable "ip_addresses_cidr" {
+  type        = list(string)
+  description = "Список IP-адресов (проверка через cidrhost)"
+
+  validation {
+    condition = alltrue([
+      for ip in var.ip_addresses_cidr : can(cidrhost("${ip}/32", 0))
+    ])
+    error_message = "Все элементы списка должны быть корректными IPv4-адресами."
+  }
+}
+```
+
+
+##  terraform.tfvars
+```
+
+# Верные значения
+ip_address      = "192.168.0.1"
+ip_address_cidr = "192.168.0.1"
+ip_addresses    = ["192.168.0.1", "1.1.1.1", "127.0.0.1"]
+ip_addresses_cidr = ["192.168.0.1", "1.1.1.1", "127.0.0.1"]
+
+# Раскомментируйте для тестирования неверных значений:
+# ip_address      = "1920.1680.0.1"
+# ip_address_cidr = "1920.1680.0.1"
+# ip_addresses    = ["192.168.0.1", "1.1.1.1", "1270.0.0.1"]
+# ip_addresses_cidr = ["192.168.0.1", "1.1.1.1", "1270.0.0.1"]
+```
+проверим в terraform console
+```
+terraform console
+```
+![alt text](image-18.png)
+
+
+Раскомментируем неверные значения 
+
+![alt text](image-19.png)
+
+получаем сообщение об ошибке
+
+![alt text](image-20.png)
+
+
+# Задание 5 
+
+1. Напишите переменные с валидацией:
+- type=string, description="любая строка" — проверка, что строка не содержит символов верхнего регистра;
+- type=object — проверка, что одно из значений равно true, а второе false, т. е. не допускается false false и true true:
+```
+variable "in_the_end_there_can_be_only_one" {
+    description="Who is better Connor or Duncan?"
+    type = object({
+        Dunkan = optional(bool)
+        Connor = optional(bool)
+    })
+
+    default = {
+        Dunkan = true
+        Connor = false
+    }
+
+    validation {
+        error_message = "There can be only one MacLeod"
+        condition = <проверка>
+    }
+}
+```
+## terraform.tfvars
+
+```
+simple_string="Привет как дела"
+#simple_string="привет как дела"
+```
+
+# variables.tf
+
+```
+variable "simple_string" {
+  default = "ПЕРЕМЕННАЯ НЕ ЗАДАНА!!!"
+  type        = string
+  description = "любая строка"
+
+  # ВАЛИДАЦИЯ: проверяем, что нет заглавных букв
+  validation {
+    # Условие: строка равна самой себе в нижнем регистре
+    # Если есть хоть одна заглавная буква -> условие ЛОЖЬ -> ошибка
+    condition = var.simple_string == lower(var.simple_string)
+    
+    # Сообщение, которое увидит пользователь при ошибке
+    error_message = "ОШИБКА: в строке есть заглавные буквы! Используйте только маленькие буквы."
+  }
+}
+```
+Проверяем
+```
+terraform console
+```
+![alt text](image-21.png)
+
+меяем 
+![alt text](image-22.png)
+
+![alt text](image-23.png)
+
+```
+# ПЕРЕМЕННАЯ 2: выбор между Коннором и Дунканом
+variable "who_is_better" {
+  description = "Кто круче: Коннор или Дункан?"
+  
+  type = object({
+    Dunkan = optional(bool)
+    Connor = optional(bool)
+  })
+
+  # Значение по умолчанию
+  default = {
+    Dunkan = true
+    Connor = false
+  }
+
+  validation {
+    # Проверяем, что значения РАЗНЫЕ (один true, другой false)
+    condition = var.who_is_better.Dunkan != var.who_is_better.Connor
+    error_message = "ОШИБКА: должен быть только один МакЛауд! (true/false или false/true)"
+  }
+}
+```
+![alt text](image-24.png)
+
+
+# Задание 6*
+
+1. Настройте любую известную вам CI/CD-систему. Если вы ещё не знакомы с CI/CD-системами, настоятельно рекомендуем вернуться к этому заданию после изучения Jenkins/Teamcity/Gitlab.
+2. Скачайте с её помощью ваш репозиторий с кодом и инициализируйте инфраструктуру.
+3. Уничтожьте инфраструктуру тем же способом.
+
+## Создадим  Dockerfile и развернем jenkins
+
+```
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Установка базовых пакетов
+RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    git \
+    iputils-ping \
+    wget \
+    dnsutils \
+    nano \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Скачивание и установка Terraform
+RUN TERRAFORM_VERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*"' | cut -d '"' -f4) \
+    && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip \
+    && unzip terraform.zip \
+    && mv terraform /usr/local/bin/ \
+    && rm terraform.zip \
+    && chmod +x /usr/local/bin/terraform
+
+# Установка Docker CLI
+RUN curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh
+
+
+ENV JAVA_OPTS="-Djava.net.preferIPv4Stack=true"
+
+# Установка плагинов 
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN JAVA_OPTS="-Djava.net.preferIPv4Stack=true" \
+    jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt --verbose
+
+# Создание директорий для обновлений
+#RUN mkdir -p /usr/share/jenkins/ref/updates \
+#    && mkdir -p /var/jenkins_home/updates
+
+# Загрузка обновлений Jenkins
+#RUN curl -L --retry 3 --retry-delay 5 --connect-timeout 10 https://updates.jenkins.io/update-center.json | sed '1d;$d' > /var/jenkins_home/updates/default.json
+
+# Копирование в ref директорию для сохранения при перезапуске
+#RUN cp /var/jenkins_home/updates/default.json /usr/share/jenkins/ref/updates/default.json \
+#    && chown -R jenkins:jenkins /usr/share/jenkins/ref/updates \
+#    && chown -R jenkins:jenkins /var/jenkins_home/updates
+
+USER jenkins
+
+# Проверка установки
+RUN terraform version
+```
+Соберем образ
+```
+docker build -t jenkins-terraform:latest .
+```
+
+
+
+docker-compose.yaml
+```
+services:
+  jenkins:
+    image: jenkins-terraform:latest
+    container_name: jenkins
+    build: .
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ./init-scripts:/usr/share/jenkins/ref/init.groovy.d:ro
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - PLUGINS_FORCE_UPGRADE=true
+    networks:
+      jenkins_net:
+        ipv4_address: 172.25.0.10
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "github.com:140.82.121.4"  # Добавляем github.com в hosts
+      - "ya.ru:77.88.55.242"       # Пример для ya.ru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  jenkins_home:
+    name: jenkins-data
+
+networks:
+  jenkins_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
+```
+
+Запустим контейнер
+
+```
+docker compose up -d
+```
+## http://localhost:8080
+Создадим проект
+![alt text](image-25.png)
+![alt text](image-26.png)
+напишем pipline
+```
+cd 05_variables_validate
+echo "=== Выполняется действие: ${ACTION} ==="
+# Инициализация Terraform (всегда нужна)
+terraform init
+
+# Выполняем выбранное действие
+terraform ${ACTION} -auto-approve
+
+# Показываем результат (если это apply)
+if [ "${ACTION}" = "apply" ]; then
+  echo "=== Результаты apply ==="
+  terraform output
+fi
+```
+запускаем 
+![alt text](image-27.png)

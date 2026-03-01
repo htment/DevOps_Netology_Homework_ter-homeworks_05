@@ -1,0 +1,40 @@
+services:
+  jenkins:
+    image: jenkins-terraform:latest
+    container_name: jenkins
+    build: .
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ~/.ssh:/var/jenkins_home/.ssh:ro
+      - ./init-scripts:/usr/share/jenkins/ref/init.groovy.d:ro
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - PLUGINS_FORCE_UPGRADE=true
+    networks:
+      jenkins_net:
+        ipv4_address: 172.25.0.10
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  jenkins_home:
+    name: jenkins-data
+
+networks:
+  jenkins_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1

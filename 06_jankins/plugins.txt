@@ -1,0 +1,11 @@
+structs
+credentials-binding
+script-security
+ssh-credentials
+mailer
+workflow-scm-step
+workflow-step-api
+credentials
+git-client
+scm-api
+git
