@@ -460,3 +460,153 @@ variable "who_is_better" {
 }
 ```
 ![alt text](image-24.png)
+
+
+# Задание 6*
+
+1. Настройте любую известную вам CI/CD-систему. Если вы ещё не знакомы с CI/CD-системами, настоятельно рекомендуем вернуться к этому заданию после изучения Jenkins/Teamcity/Gitlab.
+2. Скачайте с её помощью ваш репозиторий с кодом и инициализируйте инфраструктуру.
+3. Уничтожьте инфраструктуру тем же способом.
+
+## Создадим  Dockerfile и развернем jenkins
+
+```
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Установка базовых пакетов
+RUN apt-get update && apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    git \
+    iputils-ping \
+    wget \
+    dnsutils \
+    nano \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Скачивание и установка Terraform
+RUN TERRAFORM_VERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*"' | cut -d '"' -f4) \
+    && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o terraform.zip \
+    && unzip terraform.zip \
+    && mv terraform /usr/local/bin/ \
+    && rm terraform.zip \
+    && chmod +x /usr/local/bin/terraform
+
+# Установка Docker CLI
+RUN curl -fsSL https://get.docker.com -o get-docker.sh \
+    && sh get-docker.sh
+
+
+ENV JAVA_OPTS="-Djava.net.preferIPv4Stack=true"
+
+# Установка плагинов 
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN JAVA_OPTS="-Djava.net.preferIPv4Stack=true" \
+    jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt --verbose
+
+# Создание директорий для обновлений
+#RUN mkdir -p /usr/share/jenkins/ref/updates \
+#    && mkdir -p /var/jenkins_home/updates
+
+# Загрузка обновлений Jenkins
+#RUN curl -L --retry 3 --retry-delay 5 --connect-timeout 10 https://updates.jenkins.io/update-center.json | sed '1d;$d' > /var/jenkins_home/updates/default.json
+
+# Копирование в ref директорию для сохранения при перезапуске
+#RUN cp /var/jenkins_home/updates/default.json /usr/share/jenkins/ref/updates/default.json \
+#    && chown -R jenkins:jenkins /usr/share/jenkins/ref/updates \
+#    && chown -R jenkins:jenkins /var/jenkins_home/updates
+
+USER jenkins
+
+# Проверка установки
+RUN terraform version
+```
+Соберем образ
+```
+docker build -t jenkins-terraform:latest .
+```
+
+
+
+docker-compose.yaml
+```
+services:
+  jenkins:
+    image: jenkins-terraform:latest
+    container_name: jenkins
+    build: .
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ./init-scripts:/usr/share/jenkins/ref/init.groovy.d:ro
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - PLUGINS_FORCE_UPGRADE=true
+    networks:
+      jenkins_net:
+        ipv4_address: 172.25.0.10
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "github.com:140.82.121.4"  # Добавляем github.com в hosts
+      - "ya.ru:77.88.55.242"       # Пример для ya.ru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  jenkins_home:
+    name: jenkins-data
+
+networks:
+  jenkins_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+          gateway: 172.25.0.1
+```
+
+Запустим контейнер
+
+```
+docker compose up -d
+```
+## http://localhost:8080
+Создадим проект
+![alt text](image-25.png)
+![alt text](image-26.png)
+напишем pipline
+```
+cd 05_variables_validate
+echo "=== Выполняется действие: ${ACTION} ==="
+# Инициализация Terraform (всегда нужна)
+terraform init
+
+# Выполняем выбранное действие
+terraform ${ACTION} -auto-approve
+
+# Показываем результат (если это apply)
+if [ "${ACTION}" = "apply" ]; then
+  echo "=== Результаты apply ==="
+  terraform output
+fi
+```
+запускаем 
+![alt text](image-27.png)
